@@ -1,18 +1,18 @@
-use rust_web_server::ThreadPool;
+#![allow(clippy::unused_io_amount)]
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream};
-use std::thread;
 use std::time::Duration;
-use std::{fs, io};
+use std::{fs, thread};
+
+use rust_web_server::ThreadPoll;
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:5500").unwrap();
-    let pool = ThreadPool::new(4);
+    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+    let pool = ThreadPoll::new(4);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-
-        pool.execute(|| {
+        pool::execute(|| {
             handle_connection(stream);
         });
     }
@@ -26,18 +26,19 @@ fn handle_connection(mut stream: TcpStream) {
     let sleep = b"GET /sleep HTTP/1.1\r\n";
 
     let (status_line, file_name) = if buffer.starts_with(get) {
-        ("HTTP/1.1 200 OK", "hello")
+        ("HTTP/1.1 200 OK", "hello.html")
     } else if buffer.starts_with(sleep) {
         thread::sleep(Duration::from_secs(5));
-        ("HTTP/1.1 200 OK", "hello")
+        ("HTTP/1.1 200 OK", "hello.html")
     } else {
-        ("HTTP/1.1 404 NOT FOUND", "404")
+        ("HTTP/1.1 404 Page not found", "404.html")
     };
 
-    let contents = fs::read_to_string(format!("./html/{}.html", file_name)).unwrap();
+    // storing contents of html file in a variable
+    let contents = fs::read_to_string(format!("html/{}", file_name)).unwrap();
 
     let response = format!(
-        "{}\r\nContent len: {}\r\n\r\n{}",
+        "{}\r\nContent-Length: {}\r\n\r\n{}",
         status_line,
         contents.len(),
         contents
